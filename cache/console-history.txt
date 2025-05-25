@@ -1,0 +1,5 @@
+ll
+stop
+help
+-help
+--help

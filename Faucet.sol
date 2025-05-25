@@ -1,6 +1,6 @@
 //SPDX-License-Identifier: MIT
 pragma solidity ^0.8.9;
-/* Our first contract is a faucet */
+
 contract Faucet {
     // Give out ether to anyone who asks
     function withdraw(uint withdraw_amount) public {
