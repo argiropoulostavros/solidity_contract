@@ -34,7 +34,7 @@ contract TipCreatorContract {
     constructor(address[] memory initSponsoredCauses) {
         require(
             initSponsoredCauses.length > 0,
-            "At least one sponsored cause required"
+            "No sponsored causes"
         );
 
         owner = msg.sender;
@@ -61,7 +61,6 @@ contract TipCreatorContract {
         payable(sponsoredCause).transfer(sponsorAmount);
         payable(creatorAddress).transfer(creatorAmount);
 
-        // Update tracking variables
         totalTipsAmount += tipAmount;
         increaseSponsoredCauseAmount(sponsoredCause, sponsorAmount);
         setTopTipper(msg.sender, tipAmount);
@@ -94,7 +93,6 @@ contract TipCreatorContract {
         payable(sponsoredCause).transfer(sponsorAmount);
         payable(creatorAddress).transfer(creatorAmount);
 
-        // Update tracking variables
         totalTipsAmount += tipAmountWei;
         increaseSponsoredCauseAmount(sponsoredCause, sponsorAmount);
         setTopTipper(msg.sender, tipAmountWei);
