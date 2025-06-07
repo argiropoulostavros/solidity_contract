@@ -2,122 +2,88 @@
 pragma solidity ^0.8.9;
 
 /**
- * @title ContentCreatorTipping
- * @dev Smart contract for tipping content creators while supporting sponsored causes
- * @notice This contract facilitates tips to creators with automatic donations to sponsored causes
+ * Contract to tip content creators
+ * while also supporting sponsored causes
  */
 contract ContentCreatorTipping {
     // State variables
-    address private owner; // Contract deployer
+    address public owner; // Contract deployer
     address[] private sponsoredCauses; // Array of sponsored cause addresses (private for security)
     uint256 public totalTipsRaised; // Total amount raised across all tips
-
-    // Struct to track highest tipper information
-    struct HighestTipper {
-        address tipper;
+    TopTipper private topTipper; // Private - only owner can access
+    struct TopTipper {
+        address tipperAdress;
         uint256 amount;
     }
-
-    HighestTipper private highestTipper; // Private - only owner can access
 
     // Events
     event TipMade(address indexed tipper, uint256 amount);
 
     // Modifiers
 
-    /**
-     * @dev Restricts access to contract owner only
-     */
     modifier onlyOwner() {
-        require(
-            msg.sender == owner,
-            "Only owner can call this function"
-        );
+        require(msg.sender == owner, "Only owner can call this function");
         _;
     }
 
-    /**
-     * @dev Ensures contract is not destroyed/unusable
-     */
     modifier contractActive() {
         require(owner != address(0), "Contract has been deactivated");
         _;
     }
 
     /**
-     * @dev Constructor - sets up sponsored causes at deployment
-     * @param _sponsoredCauses Array of addresses for sponsored causes
+     * Constructor - sets up sponsored causes at deployment
      */
-    constructor(address[] memory _sponsoredCauses) {
+    constructor(address[] memory initSponsoredCauses) {
         require(
-            _sponsoredCauses.length > 0,
+            initSponsoredCauses.length > 0,
             "At least one sponsored cause required"
         );
 
         // Validate that all sponsored cause addresses are valid
-        for (uint i = 0; i < _sponsoredCauses.length; i++) {
+        for (uint i = 0; i < initSponsoredCauses.length; i++) {
             require(
-                _sponsoredCauses[i] != address(0),
+                initSponsoredCauses[i] != address(0),
                 "Invalid sponsored cause address"
             );
         }
 
         owner = msg.sender;
-        sponsoredCauses = _sponsoredCauses;
+        sponsoredCauses = initSponsoredCauses;
     }
 
     /**
-     * @dev First variation: Tip with 10% going to sponsored cause
-     * @param creatorAddress Address of the content creator to tip
-     * @param sponsorIndex Index of the sponsored cause (0-based)
+     * Tip with 10% going to sponsored cause
      */
-    function tip(
-        address payable creatorAddress,
-        uint256 sponsorIndex
-    ) external payable contractActive {
+    function tip(address creatorAddress, uint256 sponsorCauseIndex) external payable contractActive {
         require(msg.value > 0, "Tip amount must be greater than zero");
-        require(creatorAddress != address(0), "Invalid creator address");
-        require(
-            sponsorIndex < sponsoredCauses.length,
-            "Invalid sponsor cause index"
-        );
+        require(sponsorCauseIndex < sponsoredCauses.length, "Invalid sponsor cause index");
 
         uint256 tipAmount = msg.value;
-
         // Calculate amounts: 10% to sponsor, 90% to creator
         uint256 sponsorAmount = (tipAmount * 10) / 100;
         uint256 creatorAmount = tipAmount - sponsorAmount;
 
         // Transfer funds
-        payable(sponsoredCauses[sponsorIndex]).transfer(sponsorAmount);
-        creatorAddress.transfer(creatorAmount);
+        address cause = sponsoredCauses[sponsorCauseIndex]; 
+        payable(cause).transfer(sponsorAmount);
+        payable(creatorAddress).transfer(creatorAmount);
 
         // Update tracking variables
         totalTipsRaised += tipAmount;
-        _updateHighestTipper(msg.sender, tipAmount);
+        setTopTipper(msg.sender, tipAmount);
 
         // Emit event
         emit TipMade(msg.sender, tipAmount);
     }
 
     /**
-     * @dev Second variation: Tip with custom amount and percentage validation
-     * @param creatorAddress Address of the content creator to tip
-     * @param sponsorIndex Index of the sponsored cause (0-based)
-     * @param tipAmountWei The amount to tip in wei
+     * Tip with custom amount and percentage validation
      */
-    function tip(
-        address payable creatorAddress,
-        uint256 sponsorIndex,
-        uint256 tipAmountWei
-    ) external payable contractActive {
+    function tip(address creatorAddress, uint256 sponsorCauseIndex, uint256 tipAmountWei) external payable contractActive {
         require(msg.value >= tipAmountWei, "Insufficient funds sent");
         require(tipAmountWei > 0, "Tip amount must be greater than zero");
-        require(creatorAddress != address(0), "Invalid creator address");
-        require(
-            sponsorIndex < sponsoredCauses.length,
-            "Invalid sponsor cause index"
-        );
+        require(sponsorCauseIndex < sponsoredCauses.length, "Invalid sponsor cause index");
 
         // Calculate sponsor amount (10% of tip)
         uint256 sponsorAmount = (tipAmountWei * 10) / 100;
@@ -135,8 +101,8 @@ contract ContentCreatorTipping {
         uint256 creatorAmount = tipAmountWei - sponsorAmount;
 
         // Transfer funds
-        payable(sponsoredCauses[sponsorIndex]).transfer(sponsorAmount);
-        creatorAddress.transfer(creatorAmount);
+        payable(sponsoredCauses[sponsorCauseIndex]).transfer(sponsorAmount);
+        payable(creatorAddress).transfer(creatorAmount);
 
         // Return excess funds if any
         if (msg.value > tipAmountWei) {
@@ -145,56 +111,46 @@ contract ContentCreatorTipping {
 
         // Update tracking variables
         totalTipsRaised += tipAmountWei;
-        _updateHighestTipper(msg.sender, tipAmountWei);
+        setTopTipper(msg.sender, tipAmountWei);
 
         // Emit event
         emit TipMade(msg.sender, tipAmountWei);
     }
 
     /**
-     * @dev Internal function to update highest tipper tracking
-     * @param tipper Address of the current tipper
-     * @param amount Amount tipped
+     * Set top tipper
      */
-    function _updateHighestTipper(address tipper, uint256 amount) internal {
-        if (amount > highestTipper.amount) {
-            highestTipper.tipper = tipper;
-            highestTipper.amount = amount;
+    function setTopTipper(address tipper, uint256 amount) internal {
+        if (amount > topTipper.amount) {
+            topTipper.tipperAdress = tipper;
+            topTipper.amount = amount;
         }
     }
 
     /**
-     * @dev Get highest tipper information - only accessible by contract owner
-     * @return tipper Address of highest tipper
-     * @return amount Amount of highest tip
+     * Get top tipper information
      */
-    function getHighestTipper()
-        external
-        view
-        onlyOwner
-        returns (address tipper, uint256 amount)
-    {
-        return (highestTipper.tipper, highestTipper.amount);
+    function getTopTipper() external view onlyOwner returns (address tipper, uint256 amount){
+        return (topTipper.tipperAdress, topTipper.amount);
     }
 
     /**
-     * @dev Get the number of sponsored causes available
-     * @return Number of sponsored causes (useful for UI to validate indexes)
+     * Get number of sponsored causes
      */
     function getSponsoredCausesCount() external view returns (uint256) {
         return sponsoredCauses.length;
     }
 
     /**
-     * @dev Deactivate contract - renders it unusable (only owner)
-     * @notice This is irreversible and will prevent all future tipping
+     * Deactivate contract - renders it unusable (only owner)
+     * This is irreversible and will prevent all future tipping
      */
     function deactivateContract() external onlyOwner {
         owner = address(0); // Setting owner to zero address makes contract unusable
     }
 
     /**
-     * @dev Check if contract is still active
+     * Check if contract is still active
      * @return true if contract is active, false if deactivated
      */
     function isContractActive() external view returns (bool) {
