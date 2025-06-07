@@ -1,11 +1,33 @@
 const { Web3 } = await import("web3");
 const myweb3 = new Web3("http://localhost:8545");
 
-await deployContract(myweb3).then((instance) => {
-    // console.log(instance.options.address)
-    sendFundsToContract(myweb3, instance.options.address)
-});
 
+await callContractMethod(myweb3).then((instance) => {
+    console.log("Call ended")
+});
+// await deployContract(myweb3).then((instance) => {
+//     // console.log(instance.options.address)
+//     sendFundsToContract(myweb3, instance.options.address)
+// });
+
+async function callContractMethod(myweb3) {
+    var accounts = await myweb3.eth.getAccounts()
+    const balance = await myweb3.eth.getBalance(accounts[0]);
+    console.log("Sender balance before withdraw:", myweb3.utils.fromWei(balance, "ether"));
+
+    var contractAbi = [{ "inputs": [{ "internalType": "uint256", "name": "withdraw_amount", "type": "uint256" }], "name": "withdraw", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "stateMutability": "payable", "type": "receive" }];
+    var contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3"
+    var FaucetContract = new myweb3.eth.Contract(contractAbi, contractAddress);
+    var amountToWithdraw = myweb3.utils.toWei('0.1', 'ether');
+
+    await FaucetContract.methods.withdraw(amountToWithdraw)
+        .send({ from: accounts[0] }, function (error, receipt) {
+            console.log(receipt);
+        });
+
+    const newbalance = await myweb3.eth.getBalance(accounts[0]);
+    console.log("Sender balance after withdraw:", myweb3.utils.fromWei(newbalance, "ether"));
+}
 
 async function deployContract(myweb3) {
     var contractAbi = [{ "inputs": [{ "internalType": "uint256", "name": "withdraw_amount", "type": "uint256" }], "name": "withdraw", "outputs": [], "stateMutability": "nonpayable", "type": "function" }, { "stateMutability": "payable", "type": "receive" }];
